@@ -20,7 +20,6 @@ struct msgbuf{
 
 void print_usage(char *name)
 {
-
 	printf("%s (send|recv) mtype \n", name);
 }
 
@@ -44,7 +43,7 @@ int init_msgq(void)
 	return msgq;
 }
 
-static int do_recv(long mtype)
+int do_recv(long mtype)
 {
 	int msgq,ret;
 	struct msgbuf mbuf;
@@ -61,6 +60,7 @@ static int do_recv(long mtype)
 		perror("msgrcv()-error\n");
 		return -1;
 	}
+
 	printf("recv msg: mtype: %ld, msg [%s]\n", mbuf.mtype, mbuf.string);
 }
 
@@ -117,9 +117,6 @@ int main(int argc, char **argv)
 		print_usage(argv[0]);
 		return -1;
 	}
-
-
-
 
 	return 0;
 }
