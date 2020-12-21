@@ -21,7 +21,7 @@ struct msgbuf{
 void print_usage(char *name)
 {
 
-	printf("%s (send|recv)\n", name);
+	printf("%s (send|recv) mtype \n", name);
 }
 
 int init_msgq(void)
@@ -44,7 +44,7 @@ int init_msgq(void)
 	return msgq;
 }
 
-int do_recv()
+static int do_recv(long mtype)
 {
 	int msgq,ret;
 	struct msgbuf mbuf;
@@ -56,7 +56,7 @@ int do_recv()
 	}
 
 	memset(&mbuf, 0, sizeof(mbuf));
-	ret = msgrcv(msgq, &mbuf, sizeof(mbuf.string), 0, 0);
+	ret = msgrcv(msgq, &mbuf, sizeof(mbuf.string), mtype, 0);
 	if(ret == -1){
 		perror("msgrcv()-error\n");
 		return -1;
@@ -65,7 +65,7 @@ int do_recv()
 }
 
 
-int do_send()
+int do_send(long mtype)
 {
 	int msgq;
 	msgq = init_msgq();
@@ -76,8 +76,8 @@ int do_send()
 	struct msgbuf mbuf;
 
 	memset(&mbuf, 0, sizeof(mbuf));
-	mbuf.mtype=1;
-	strncpy(mbuf.string, "system programming", sizeof(mbuf.string)-1);
+	mbuf.mtype=mtype;
+	snprintf(mbuf.string, sizeof(mbuf.string), "hello world mtype %ld",mtype);
 	if(msgsnd(msgq, &mbuf, sizeof(mbuf.string), 0) == -1 ){
 
 		perror("msgnd()-error\n");
@@ -90,21 +90,29 @@ int do_send()
 int main(int argc, char **argv)
 {
 	int ret;
+	long mtype;
 
-	if(argc < 2){
+	if(argc < 3){
 
 		print_usage(argv[0]);
 		return -1;
 	}
 
+	mtype = strtol(argv[2], NULL, 10);
+	
 	if(!strcmp(argv[1], "send")){
-		ret=do_send();
-
+		if(mtype <= 0){
+			print_usage(argv[0]);
+			return 0;
+		}	
+		ret = do_send(mtype);
 	}
+	
 	else if(!strcmp(argv[1], "recv")){
-		ret=do_recv();
+		ret=do_recv(mtype);
 		
 	}
+	
 	else{
 		print_usage(argv[0]);
 		return -1;
