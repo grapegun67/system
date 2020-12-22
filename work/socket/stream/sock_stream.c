@@ -13,6 +13,45 @@ void print_usage(const char *name)
 	printf("%s (sever | client)\n", name);
 }
 
+int stream_send(int sock, void *buf, size_t buflen, int flag)
+{
+	int written = 0;
+	int ret;
+
+	while(written < buflen){	
+	
+		ret =  send(sock, (char *)buf + written, buflen + written, flag);
+
+		if(ret == -1){
+			return ret;
+		}
+		
+		written += ret;
+	}
+
+	return 0;
+}
+
+int stream_recv(int sock, void *buf, size_t buflen, int flag)
+{
+	int written = 0;
+	int ret;
+
+	while(written < buflen){	
+	
+		ret =  recv(sock, (char *)buf + written, buflen + written, flag);
+
+		if(ret == -1){
+			return ret;
+		}
+		
+		written += ret;
+	}
+
+	return 0;
+}
+
+
 
 int do_server()
 {
@@ -45,8 +84,13 @@ int do_server()
 	}
 
 	memset(buf, 0, sizeof(buf));
-	ret = recv(peer, buf, sizeof(buf), 0);
-	if(ret == -1){
+
+
+	//ret = recv(peer, buf, sizeof(buf), 0);
+	
+	ret = stream_recv(peer, buf, sizeof(buf), 0);
+
+	if(ret < 0){
 		perror("recv()- error\n");
 		close(sock);
 		return 0;
@@ -65,7 +109,7 @@ int do_client()
 {
 
 	int sock,ret;
-	char buf[128];
+	char buf[1024];
 	struct sockaddr_un addr;
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(sock < 0){
@@ -85,7 +129,17 @@ int do_client()
 
 	memset(buf,0,sizeof(buf));
 	snprintf(buf, sizeof(buf), "system programming\n");
-	ret = send(sock, buf, sizeof(buf), 0);
+
+	//ret = send(sock, buf, sizeof(buf), 0);
+	
+	
+	ret = stream_send(sock, buf, sizeof(buf), 0);
+
+	if(ret < 0){
+		error("send()-error\n");
+		close(sock);
+		return 0;
+	}
 
 	close(sock);
 
