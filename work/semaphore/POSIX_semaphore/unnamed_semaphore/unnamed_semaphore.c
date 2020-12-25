@@ -6,31 +6,33 @@
 #include <sys/stat.h>
 #include <fcntl.h>	
 #include <sys/mman.h>
+#include <semaphore.h>
 
 
-#define SHM_NAME	"/shm"
+#define SHM_NAME	"/tmp"
 
 
 struct login_info{
 
+	sem_t sem;
 	int pid;
-	int count;
+	int count;	
 };
 
 
 
 void print_usage(char *name)
 {
-	printf("%s (monitor)\n", name);
+	printf("%s (monitor | get | release)\n", name);
 }
 
 int do_monitor()
 {
-	int fd,n=0;
+	int fd,n=0,value;
 	struct login_info *info;
 	struct login_info local;
 
-	fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0644);
+	fd = shm_open(SHM_NAME, O_RDWR|O_CREAT, 0644);
 	if(fd == -1){
 		perror("shm_open()-error\n");
 		return 0;
@@ -41,9 +43,6 @@ int do_monitor()
 		close(fd);
 		return 0;
 	}
-//       void *mmap(void *addr, size_t length, int prot, int flags,  int fd, off_t offset);
-	
-
 
 	info = mmap(NULL, sizeof(struct login_info), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
@@ -56,26 +55,73 @@ int do_monitor()
 	memset(info, 0, sizeof(struct login_info));
 	memset(&local, 0, sizeof(local));
 
+
+	if(sem_init(&info->sem, 1, 3) == -1){
+		perror("sem_init()-error\n");
+		close(fd);
+		return 0;
+	}
+	
+
 	while(1){
 		
 		if(memcmp(&local, info, sizeof(struct login_info ))){
+			
+			sem_getvalue(&info->sem, &value);
 			memcpy(&local, info, sizeof(struct login_info));
-			printf("pid = %d, count = %d\n", info->pid, info->count);
+			printf("pid = %d, count = %d, semaphore = %d \n", info->pid, info->count, value);
 			n++;
 		}	
 	
-		if(n == 5) break;
+		if(n == 15) break;
 
 		sleep(1);
 	}
 	
-
+	sem_destroy(&info->sem);
 	munmap(info, sizeof(struct login_info));
 	close(fd);
 	return 0;
 }
 
 int do_login()
+{
+	
+	int fd;
+	struct login_info *info;
+
+	printf("%d\n", getpid());		
+
+	fd = shm_open(SHM_NAME, O_RDWR, 0644);
+	if(fd == -1){
+		perror("open()-error\n");
+		return 0;
+	}
+
+
+	info = mmap(NULL, sizeof(struct login_info), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if(info == MAP_FAILED){
+		perror("mmap()-error\n");
+		close(fd);
+		return 0;
+	}
+
+	
+	sem_wait(&info->sem);	
+
+	info->pid = getpid();
+	info->count++;
+
+
+	munmap(info, sizeof(struct login_info));
+
+	close(fd);
+
+	return 0;
+}
+
+
+int do_logout()
 {
 	
 	int fd;
@@ -97,23 +143,24 @@ int do_login()
 	}
 
 	
-	info->pid = getpid();
-	info->count++;
-	
+	sem_post(&info->sem);	
 
 	munmap(info, sizeof(struct login_info));
 
 	close(fd);
-
 	return 0;
 }
-
 
 
 int main(int argc, char **argv)
 {
 	int monitor=0;
+	int get;	
 
+	if(argc < 2){
+		print_usage(argv[0]);
+		return 0;
+	}
 
 	if(argc == 2){
 
@@ -121,6 +168,14 @@ int main(int argc, char **argv)
 			monitor = 1;
 		}
 		
+		else if(!strcmp(argv[1], "get")){
+			get=1;
+		}
+
+		else if(!strcmp(argv[1], "release")){
+			get=0;
+		}
+
 		else {
 			print_usage(argv[0]);
 			return 0;
@@ -132,7 +187,15 @@ int main(int argc, char **argv)
 	}
 	
 	else{
-		do_login();
+		if(get){
+
+			do_login();
+		}
+
+		else{
+			do_logout();
+		}
+	
 	}
 
 	return 0;
