@@ -10,31 +10,28 @@
 
 
 
-#define PATHNAME        "tty"
+#define PATHNAME        "test"
 #define LENGTH          1024
 
+pthread_t pt_list[3];
+int pt=0;
 
-struct client{
-        int client_sockfd;
-        pthread_t pt;
-};
-
-struct client client[3];
-int c_num = 0;
-
-
-void *client_func(void *args)
+void *calc_func(void *args)
 {
-        int *sockfd = (int *)args;
         char buf[LENGTH];
+        int *sockfd = (int *)args;
 
         memset(buf, 0, sizeof(buf));
-        strncpy(buf, "good", sizeof(buf));
 
-        while(1){
-                sleep(2);
-                send(*sockfd, buf, sizeof(buf),0);
+        for(int i=0; i<10; i++){
+                snprintf(buf, sizeof(buf), "%d",i);
+                send(*sockfd, buf, sizeof(buf), 0);
         }
+
+        snprintf(buf, sizeof(buf), "finished");
+        send(*sockfd, buf, sizeof(buf), 0);
+
+        close(*sockfd);
 }
 
 
@@ -46,10 +43,10 @@ void do_read()
         char buf[LENGTH];
 
         memset(buf, 0, sizeof(buf));
-	memset(&sockaddr, 0, sizeof(sockaddr));
+        memset(&sockaddr, 0, sizeof(sockaddr));
         memset(&client_sockaddr, 0, sizeof(client_sockaddr));
         sockaddr.sun_family = AF_UNIX;
-        strncpy(sockaddr.sun_path, PATHNAME, sizeof(sockaddr.sun_path)-1);
+ 	strncpy(sockaddr.sun_path, PATHNAME, sizeof(sockaddr.sun_path)-1);
 
 
         sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -69,16 +66,21 @@ void do_read()
         printf("waiting connecting....\n");
 
         while(1){
-		client[c_num].client_sockfd = accept(sockfd, NULL, NULL);
-                if(client[c_num].client_sockfd < 1){
-                        printf("[%d]socket exit connect\n", client[c_num].client_sockfd);
+
+                client_sockfd = accept(sockfd, NULL, NULL);
+                if(client_sockfd == -1){
+                        perror("accept()-error\n");
                         return;
                 }
-                printf("[%d]socket success connect\n", client[c_num].client_sockfd);
 
-                pthread_create(&client[c_num].pt, NULL, client_func, (void *)&client[c_num].client_sockfd);
+                printf("%d client success connect\n", client_sockfd);
 
-                c_num++;
+
+                if(pthread_create(&pt_list[pt++], NULL, calc_func, (void *)&client_sockfd) != 0){
+                        perror("pthread_create()-error\n");
+                        return;
+                }
+
         }
 }
 
@@ -108,12 +110,17 @@ void do_write()
 
         printf("connect success\n");
 
-	while(1){
-                memset(buf, 0, sizeof(buf));
-                recv(sockfd, buf, sizeof(buf), 0);
-                printf("result: %s\n", buf);
-        }
 
+        while(1){
+                memset(buf, 0, sizeof(buf));
+
+                if(recv(sockfd, buf, sizeof(buf), 0) < 1){
+                        printf("exit connect\n");
+                        exit(0);
+                }
+
+                printf("%s\n", buf);
+        }
 }
 
 void print_usage(char *name)
@@ -139,4 +146,3 @@ int main(int argc, char **argv)
 
         return 0;
 }
-
