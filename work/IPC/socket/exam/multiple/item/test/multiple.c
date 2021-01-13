@@ -59,10 +59,30 @@ void print_node_list(Client_node *head)
 	printf("\n");
 }
 
+
+int explore_node(int num)
+{
+	Client_node *node = client_head_list->next;	
+
+	while(1){
+
+		if(node->data.client_sockfd == num){
+			return num;
+		}
+
+		else if(node->next == NULL){
+			return -1;
+		}
+	}
+}
+
+
 void *fight_pthread(void *args)
 {
-	int tmp;
+	int tmp, num, fight_sockfd;
 	char buf[LENGTH];
+	char person1[LENGTH];
+	char person2[LENGTH];
 	int *tmp_sockfd = (int *)args;
 
 
@@ -82,8 +102,51 @@ void *fight_pthread(void *args)
 	}
 
 
-	
+	num = atoi(buf);
+	fight_sockfd = explore_node(num);
+	if(fight_sockfd == -1){
+		printf("%d do not existed\n", num);
+		return NULL;
+	}
+
 	/* fight loop */
+
+	memset(buf, 0, sizeof(buf));
+	strncpy(buf, "2*3 = ?", sizeof(buf));
+
+	send(*tmp_sockfd , buf, sizeof(buf), 0);
+	send(fight_sockfd, buf, sizeof(buf), 0);
+
+	recv(*tmp_sockfd ,person1, sizeof(person1), 0);
+	recv(fight_sockfd ,person2, sizeof(person2), 0);
+
+	/* person1 */
+	if(2*3 == atoi(person1)){
+		
+		memset(buf, 0, sizeof(buf));
+		strncpy(buf, "correct", sizeof(buf));
+		send(*tmp_sockfd, buf, sizeof(buf), 0);
+	}
+	else{
+		memset(buf, 0, sizeof(buf));
+		strncpy(buf, "incorrect", sizeof(buf));
+		send(*tmp_sockfd, buf, sizeof(buf), 0);
+	}
+
+	/* person2 */
+	if(2*3 == atoi(person2)){
+		
+		memset(buf, 0, sizeof(buf));
+		strncpy(buf, "correct", sizeof(buf));
+		send(fight_sockfd, buf, sizeof(buf), 0);
+	}
+
+	else{
+		memset(buf, 0, sizeof(buf));
+		strncpy(buf, "incorrect", sizeof(buf));
+		send(fight_sockfd, buf, sizeof(buf), 0);
+	}
+
 }
 
 

@@ -33,32 +33,39 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
-	while(1){
 
-		/* initialize connect */
-		if(recv(sockfd, buf, sizeof(buf), 0) == -1){
-			perror("recv()-error\n");
-			return 0;
-		}
+	/* initialize connect */
 
-		printf("%s\n", buf);
-		memset(buf, 0, sizeof(buf));
-		scanf("%s", buf);
-		send(sockfd, buf, sizeof(buf), 0);
+	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
+		perror("recv()-error\n");
+		return 0;
+	}
 
+	printf("%s\n", buf);
+	memset(buf, 0, sizeof(buf));
+	scanf("%s", buf);
+	send(sockfd, buf, sizeof(buf), 0);
 
-		/* fight loop */
-		while(1){
-			
-			if(recv(sockfd, buf, sizeof(buf), 0) == -1){
-				perror("recv()-error\n");
-				return 0;
-			}
-			
-			
+	/* fight loop */
+		
+	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
+		perror("recv()-error\n");
+		return 0;
+	}
 
-			break;
-		}
+	printf("%s\n", buf);
+	memset(buf, 0, sizeof(buf));
+	scanf("%s", buf);
+	send(sockfd, buf, sizeof(buf), 0);
+	
+
+	memset(buf, 0, sizeof(buf));
+	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
+		perror("recv()-error\n");
+		return 0;
+	}	
+
+	printf("%s\n", buf);
 
 
 	return 0;
