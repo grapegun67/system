@@ -36,37 +36,27 @@ int main(int argc, char **argv)
 
 	/* initialize connect */
 
+	memset(buf, 0, sizeof(buf));
 	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
 		perror("recv()-error\n");
 		return 0;
 	}
-
 	printf("%s\n", buf);
-	memset(buf, 0, sizeof(buf));
-	scanf("%s", buf);
-	send(sockfd, buf, sizeof(buf), 0);
-
-	/* fight loop */
-		
-	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
-		perror("recv()-error\n");
-		return 0;
-	}
-
-	printf("%s\n", buf);
-	memset(buf, 0, sizeof(buf));
-	scanf("%s", buf);
-	send(sockfd, buf, sizeof(buf), 0);
 	
 
+	/* send answer */
+	memset(buf, 0, sizeof(buf));
+	scanf("%s", buf);
+	send(sockfd, buf, sizeof(buf), 0);
+
+	
+	/* receive answer */
 	memset(buf, 0, sizeof(buf));
 	if(recv(sockfd, buf, sizeof(buf), 0) == -1){
 		perror("recv()-error\n");
 		return 0;
-	}	
-
+	}
 	printf("%s\n", buf);
-
 
 	return 0;
 }

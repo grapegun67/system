@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <pthread.h>
+#include <sys/epoll.h>
+
 
 
 #define PATHNAME	"abcd"
@@ -26,8 +28,16 @@ typedef struct Client_node{
 
 }Client_node;
 
+
+typedef struct Sockfd{
+	int *client_sockfd;
+	int *sockfd;
+}Sockfd;
+
+
 /* head_list */
 Client_node *client_head_list; 
+
 
 void insert_node(Client_node *head, int client_sockfd)
 {
@@ -79,79 +89,45 @@ int explore_node(int num)
 
 void *fight_pthread(void *args)
 {
-	int tmp, num, fight_sockfd;
+
+
+
+}
+
+void *accept_thread(void *args)
+{
 	char buf[LENGTH];
-	char person1[LENGTH];
-	char person2[LENGTH];
-	int *tmp_sockfd = (int *)args;
+	Sockfd *sfd = (Sockfd *)args;
 
+	while(1){
 
-	/* initialize connect */
-	memset(buf, 0, sizeof(buf));
-	strncpy(buf, "choice person: ", sizeof(buf));	
-	if(send(*tmp_sockfd, buf, sizeof(buf), 0) == -1){
-		perror("send()-error\n");
-		return NULL;
-	}
+ 		*(sfd->client_sockfd) = accept(*(sfd->sockfd), NULL, NULL);
+                if(*(sfd->client_sockfd) == -1){
+               	        perror("accept()-error\n");
+       	                return 0;
+                }
 
-
-	memset(buf, 0, sizeof(buf));
-	if(recv(*tmp_sockfd, buf, sizeof(buf), 0) == -1){
-		perror("recv()-error\n");
-		return NULL;
-	}
-
-
-	num = atoi(buf);
-	fight_sockfd = explore_node(num);
-	if(fight_sockfd == -1){
-		printf("%d do not existed\n", num);
-		return NULL;
-	}
-
-	/* fight loop */
-
-	memset(buf, 0, sizeof(buf));
-	strncpy(buf, "2*3 = ?", sizeof(buf));
-
-	send(*tmp_sockfd , buf, sizeof(buf), 0);
-	send(fight_sockfd, buf, sizeof(buf), 0);
-
-	recv(*tmp_sockfd ,person1, sizeof(person1), 0);
-	recv(fight_sockfd ,person2, sizeof(person2), 0);
-
-	/* person1 */
-	if(2*3 == atoi(person1)){
+ 		printf("client connected\n");
 		
-		memset(buf, 0, sizeof(buf));
-		strncpy(buf, "correct", sizeof(buf));
-		send(*tmp_sockfd, buf, sizeof(buf), 0);
-	}
-	else{
-		memset(buf, 0, sizeof(buf));
-		strncpy(buf, "incorrect", sizeof(buf));
-		send(*tmp_sockfd, buf, sizeof(buf), 0);
-	}
+       	        insert_node(client_head_list, *(sfd->client_sockfd));
+       	        print_node_list(client_head_list);
 
-	/* person2 */
-	if(2*3 == atoi(person2)){
-		
-		memset(buf, 0, sizeof(buf));
-		strncpy(buf, "correct", sizeof(buf));
-		send(fight_sockfd, buf, sizeof(buf), 0);
-	}
 
-	else{
 		memset(buf, 0, sizeof(buf));
-		strncpy(buf, "incorrect", sizeof(buf));
-		send(fight_sockfd, buf, sizeof(buf), 0);
+		strncpy(buf, "2*3 = ?", sizeof(buf));
+		send(*(sfd->client_sockfd), buf, sizeof(buf), 0);
 	}
-
 }
 
 
 int main(int argc, char **argv)
 {
+	char buf[LENGTH];
+
+	pthread_t accept_pt;
+	Sockfd structfd;
+	struct epoll_event event;
+
 	/* head_list initialize */
 
 	client_head_list = (Client_node *)malloc(sizeof(Client_node));
@@ -159,7 +135,7 @@ int main(int argc, char **argv)
 
 	/* initiallize variable  */
 
-	int sockfd, client_sockfd;
+	int sockfd, client_sockfd, epfd, ret;
 	struct sockaddr_un sockaddr;
 
 	/* memory setting */
@@ -182,25 +158,70 @@ int main(int argc, char **argv)
 
 	listen(sockfd, 5);
 
+
+
+	epfd = epoll_create1(0);	
+	if(epfd == -1){
+		perror("epoll_create1()-error\n");
+		return 0;
+	}
+
+
+	
+	event.events = EPOLLIN;
+	event.data.fd = client_sockfd;
+	if(epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event) == -1){
+		perror("epoll_ctl()-error\n");
+		return 0;
+	}
+	
 	
 	while(1){
 		
-		printf("wait connecting...\n");
+		structfd.sockfd = &sockfd;
+		structfd.client_sockfd = &client_sockfd;
+		pthread_create(&accept_pt , NULL, accept_thread, (void *)&structfd);
 
-		client_sockfd = accept(sockfd, NULL, NULL);
-		if(client_sockfd == -1){
-			perror("accept()-error\n");
+
+		printf("wait connecting...\n");
+		memset(&event, 0, sizeof(event));
+		ret = epoll_wait(epfd, &event, 1, 10000);
+
+		if(ret == -1){
+			perror("epoll_wait()-error\n");
 			return 0;
 		}
 
-		printf("client connected\n");
+		else if(ret == 0){
+			printf("timeout!\n");
+		}
 
-		insert_node(client_head_list, client_sockfd);
-		print_node_list(client_head_list);
+		else if(ret > 0){
+			printf("fu\n");		
+			memset(buf, 0, sizeof(buf));
+			if(recv(client_sockfd, buf, sizeof(buf), 0) == -1){
+				perror("recv()-error\n");
+				return 0;
+			}
+			
+			if(atoi(buf) == 6){
+				memset(buf, 0, sizeof(buf));
+				strncpy(buf, "correct", sizeof(buf));
+				send(client_sockfd, buf, sizeof(buf), 0);
+			}
 
+			else if(atoi(buf) != 6){
+				memset(buf, 0, sizeof(buf));
+				strncpy(buf, "incorrect", sizeof(buf));
+				send(client_sockfd, buf, sizeof(buf), 0);
+			}
 
+		}	
+
+		/*
 		Client_node *tmp_node = client_head_list->next;
 		pthread_create(&(tmp_node->data.pt), NULL, fight_pthread, (void *)&client_sockfd); 
+		*/
 	}
 
 
